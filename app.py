@@ -45,6 +45,14 @@ def load_data():
         # formatto la colonna "lake_or_reservoir"
         ).with_columns(
             pl.col("lake_or_reservoir").str.replace("l", "L").str.strip_chars_end(" ")
+        
+        # traduco in italiano la colonna "region"
+        ).with_columns(
+            pl.col("region").replace([
+                "Europe", "Middle East", "Northeastern North America", "South America", "Southeastern North America", "Western North America"
+            ], [
+                "Europa", "Medio Oriente", "Nord America nord-orientale", "Sud America", "Nord America sud-orientale", "Nord America occidentale"
+            ])
         )
 
     return values, lakeinformation
@@ -56,13 +64,13 @@ def get_map():
     color_map = {
         "Africa": "#1f77b4",
         "Asia": "#ff7f0e",
-        "Europe": "#2ca02c",
-        "Middle East": "#d62728",
-        "Northeastern North America": "#9467bd",
-        "Oceania": "#8c564b",
-        "South America": "#e377c2",
-        "Southeastern North America": "#7f7f7f",
-        "Western North America": "#bcbd22"
+        "Europa": "#2ca02c",
+        "Medio Oriente": "#d62728",
+        "Nord America nord-orientale": "#9467bd",
+        "Nord America occidentale": "#8c564b",
+        "Nord America sud-orientale": "#e377c2",
+        "Oceania": "#7f7f7f",
+        "Sud America": "#bcbd22"
     }
     
     # Creazione della figura
