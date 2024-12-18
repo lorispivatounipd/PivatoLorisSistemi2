@@ -1,6 +1,7 @@
 import polars as pl
 import streamlit as st
 import plotly.graph_objects as go
+import altair as alt
 
 # configurazione della pagina web
 st.set_page_config(
@@ -131,6 +132,76 @@ def get_map():
     
     return fig
 
+# Funzione che costruisce i boxplot
+def get_boxplot(_data, _lakeinformation):
+    
+    # riordino e pulizia dei dati per semplicità d'utilizzo
+    graph_data = data.filter(
+            (pl.col("variable").is_in(["Lake_Temp_Summer_InSitu", "Lake_Temp_Summer_Satellite"]))
+        ).pivot(
+            on = "variable",
+            values = "value"
+        ).join(
+            lakeinformation,
+            on = "siteID"
+        ).with_columns(
+            pl.when(pl.col("source") == "in situ").then(pl.col("Lake_Temp_Summer_InSitu"))
+            .when(pl.col("source") == "satellite").then(pl.col("Lake_Temp_Summer_Satellite"))
+            .otherwise(None)
+            .alias("Lake_Temp_Summer")
+        ).select(
+            pl.col("Lake_Temp_Summer", "region", "year", "Lake_name")
+        )
+    
+    # costruzione dello scatterplot
+    scatter = alt.Chart(graph_data).mark_circle(
+        
+        binSpacing = 0,
+        size = 8,
+        opacity = 1
+        
+    ).encode(
+        
+        alt.Y("Lake_Temp_Summer", title = "Temperatura (°C)"),
+        alt.X("year:O", title = "Anno"),
+        alt.Color("region").scale(scheme="category10"),
+        # offset dei singoli punti in modo randomico
+        xOffset = "jitter:Q",
+        # visualizzazione del nome del lago al passaggio del cursore
+        tooltip = "Lake_name"
+        
+    # formula che genera un offset secondo la trasformazione di Box-Muller
+    ).transform_calculate(
+        jitter = "sqrt(-2*log(random()))*cos(2*PI*random())"
+    ).properties(
+        height = 500
+    )
+
+    # costruzione del boxplot
+    boxplot = alt.Chart(graph_data).mark_boxplot(
+        
+        # rimuovo i valori outliers già visibili con lo scatterplot
+        outliers = False,
+        size = 25,
+        # rendo l'area delle scatole invisibile per visualizzare gli scatter sottostanti
+        box = {"fill": None}
+        
+    ).encode(
+        
+        alt.Y("Lake_Temp_Summer", title = ""),
+        alt.X("year:O"),
+        # rendo i bordi dei boxplot visibili
+        stroke = alt.value("black"),
+        strokeWidth = alt.value(1.5)
+        
+    )
+
+    # grafico finale
+    final_chart = scatter + boxplot
+    
+    return final_chart
+
+
 # Caricamento dei dataset
 data, lakeinformation = load_data()
 
@@ -209,3 +280,6 @@ fig.update_layout(
 
 # Visualizzazione dello scattermapbox
 st.plotly_chart(fig, use_container_width=True)
+
+# Visualizzazione dei boxplot
+st.altair_chart(get_boxplot(data, lakeinformation), use_container_width = True)
