@@ -6,7 +6,8 @@ import altair as alt
 # Configurazione della pagina web
 st.set_page_config(
     layout = "wide",
-    initial_sidebar_state = "collapsed"
+    initial_sidebar_state = "collapsed",
+    page_title = "Lake temperatures"
 )
 
 # Funzione che carica i dataset
