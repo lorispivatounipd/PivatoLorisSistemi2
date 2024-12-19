@@ -255,18 +255,102 @@ def get_rect(data, lakeinformation):
     
     return graph
 
+# Funzione che ricava il grafico della temperatura dell'aria nel tempo
+def get_lineplot(data, lakeID):
+    
+    # Crea un selection point che identifica il punto più vicino al cursore basato sull'asse X "Anno"
+    nearest = alt.selection_point(
+        
+        nearest = True,
+        on = "pointerover",
+        fields = ["year"],
+        empty = False
+    )
+
+    # Il grafico di base con le temperature
+    line = alt.Chart(
+        
+        data.filter(
+            pl.col("variable").is_in(["Air_Temp_Mean_Annual_NCEP", "Air_Temp_Mean_Summer_NCEP", "Air_Temp_Mean_Winter_NCEP"]),
+            pl.col("siteID") == lakeID
+        )
+        
+    ).mark_line().encode(
+        # Asse X
+        alt.X("year:Q", axis = alt.Axis(format = ".0f"), scale = alt.Scale(zero = False), title = "Anno"),
+        # Asse Y
+        alt.Y("value:Q", scale = alt.Scale(zero = False), title = "Temperatura (°C)"),
+        # Colori delle linee
+        alt.Color("variable")
+    )
+
+    # Selettore trasparente del grafico. Ricava il valore X in cui si trova il cursore
+    selectors = alt.Chart(
+        
+        data.filter(
+            pl.col("variable").is_in(["Air_Temp_Mean_Annual_CRU", "Air_Temp_Mean_Summer_CRU", "Air_Temp_Mean_Winter_CRU"]),
+            pl.col("siteID") == lakeID
+        )
+        
+    ).mark_point().encode(
+        
+        alt.X("year:Q", title = "Anno"),
+        opacity = alt.value(0)
+        
+    ).add_selection(
+        nearest
+    )
+    
+    # Disegna i punti sulle linee per evidenziare l'anno selezionato
+    points = line.mark_point().encode(
+        opacity = alt.condition(nearest, alt.value(1), alt.value(0))
+    )
+
+    # Riporta la temperatura delle linee nei punti selezionati con il cursore
+    text = line.mark_text(
+        align = "left",
+        dx = 5,
+        dy = -5
+    ).encode(
+        text = alt.condition(nearest, "value", alt.value(" "))
+    )
+
+    # Disegna la linea verticale in corrispondenza dell'anno selezionato con il cursore
+    rules = alt.Chart(
+        
+        data.filter(
+            pl.col("variable").is_in(["Air_Temp_Mean_Annual_CRU", "Air_Temp_Mean_Summer_CRU", "Air_Temp_Mean_Winter_CRU"]),
+            pl.col("siteID") == lakeID
+        )
+        
+    ).mark_rule(color = "gray").encode(
+        alt.X("year:Q", title = "Anno"),
+        opacity = alt.value(0.3)
+    ).transform_filter(
+        nearest
+    )
+    
+    # Grafico finale che combina i grafici precedenti
+    chart = alt.layer(
+      line, selectors, points, rules, text
+    ).properties(
+        height=300
+    )
+
+    return chart
+
 
 # Caricamento dei dataset
 data, lakeinformation = load_data()
-
-# Visualizzazione dei dataset
-st.write(data, lakeinformation)
 
 # Scelta del lago
 lake = st.selectbox("Inserisci il lago:", lakeinformation.get_column("Lake_name").sort())
 
 # Determinazione dell'ID del lago
 lakeID = lakeinformation.filter(pl.col("Lake_name") == lake)["siteID"]
+
+# Visualizzazione del grafico delle temperature dell'aria
+st.altair_chart(get_lineplot(data, lakeID), use_container_width = True)
 
 # Ricavo lo scattermapbox base
 fig = get_map()
