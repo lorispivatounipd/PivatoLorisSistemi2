@@ -3,7 +3,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import altair as alt
 
-# configurazione della pagina web
+# Configurazione della pagina web
 st.set_page_config(
     layout = "wide",
     initial_sidebar_state = "collapsed"
@@ -12,48 +12,52 @@ st.set_page_config(
 # Funzione che carica i dataset
 def load_data():
     
+    # Dataset con i valori
     values = pl.read_csv(
     
         source = "values.csv"
         
-        # rimuovo le osservazioni superflue
+        # Rimuovo le osservazioni superflue
         ).filter(
         pl.col("recordID") != 228540
         
-        # rimuovo le colonne superflue
+        # Rimuovo le colonne superflue
         ).select(
             pl.col("*").exclude("recordID")
         
         )
     
+    # Dataset con le informazioni per lago
     lakeinformation = pl.read_csv(
     
         source = "lakeinformation.csv",
         encoding = "utf8-lossy"
         
-        # rimuovo le colonne superflue
+        # Rimuovo le colonne superflue
         ).select(
             pl.col("*").exclude("contributor", "Other_names", "geospatial_accuracy_km", "sampling_time_of_day", "time_period")
         
-        # rimuovo le osservazioni superflue
+        # Rimuovo le osservazioni superflue
         ).filter(
             pl.col("siteID") < 342
         
-        # aggiusto i nomi dei laghi
+        # Aggiusto i nomi dei laghi
         ).with_columns(
             pl.col("Lake_name").str.replace_all(r"\.", " ")
         
-        # formatto la colonna "lake_or_reservoir"
+        # Formatto la colonna "lake_or_reservoir"
         ).with_columns(
             pl.col("lake_or_reservoir").str.replace("l", "L").str.strip_chars_end(" ")
         
-        # traduco in italiano la colonna "region"
+        # Traduco in italiano la colonna "region"
         ).with_columns(
+            
             pl.col("region").replace([
                 "Europe", "Middle East", "Northeastern North America", "South America", "Southeastern North America", "Western North America"
             ], [
                 "Europa", "Medio Oriente", "Nord America nord-orientale", "Sud America", "Nord America sud-orientale", "Nord America occidentale"
             ])
+            
         )
 
     return values, lakeinformation
@@ -135,25 +139,33 @@ def get_map():
 # Funzione che costruisce i boxplot
 def get_boxplot(_data, _lakeinformation):
     
-    # riordino e pulizia dei dati per semplicità d'utilizzo
+    # Riordino e pulizia dei dati per semplicità d'utilizzo
     graph_data = data.filter(
+        
             (pl.col("variable").is_in(["Lake_Temp_Summer_InSitu", "Lake_Temp_Summer_Satellite"]))
+        
         ).pivot(
+        
             on = "variable",
             values = "value"
+        
         ).join(
+        
             lakeinformation,
             on = "siteID"
+        
         ).with_columns(
+        
             pl.when(pl.col("source") == "in situ").then(pl.col("Lake_Temp_Summer_InSitu"))
             .when(pl.col("source") == "satellite").then(pl.col("Lake_Temp_Summer_Satellite"))
             .otherwise(None)
             .alias("Lake_Temp_Summer")
+        
         ).select(
             pl.col("Lake_Temp_Summer", "region", "year", "Lake_name")
         )
     
-    # costruzione dello scatterplot
+    # Costruzione dello scatterplot
     scatter = alt.Chart(graph_data).mark_circle(
         
         binSpacing = 0,
@@ -165,41 +177,82 @@ def get_boxplot(_data, _lakeinformation):
         alt.Y("Lake_Temp_Summer", title = "Temperatura (°C)"),
         alt.X("year:O", title = "Anno"),
         alt.Color("region").scale(scheme="category10"),
-        # offset dei singoli punti in modo randomico
+        # Offset dei singoli punti in modo randomico
         xOffset = "jitter:Q",
-        # visualizzazione del nome del lago al passaggio del cursore
+        # Visualizzazione del nome del lago al passaggio del cursore
         tooltip = "Lake_name"
         
-    # formula che genera un offset secondo la trasformazione di Box-Muller
+    # Formula che genera un offset secondo la trasformazione di Box-Muller
     ).transform_calculate(
         jitter = "sqrt(-2*log(random()))*cos(2*PI*random())"
     ).properties(
         height = 500
     )
 
-    # costruzione del boxplot
+    # Costruzione del boxplot
     boxplot = alt.Chart(graph_data).mark_boxplot(
         
-        # rimuovo i valori outliers già visibili con lo scatterplot
+        # Rimuovo i valori outliers già visibili con lo scatterplot
         outliers = False,
         size = 25,
-        # rendo l'area delle scatole invisibile per visualizzare gli scatter sottostanti
+        # Rendo l'area delle scatole invisibile per visualizzare gli scatter sottostanti
         box = {"fill": None}
         
     ).encode(
         
         alt.Y("Lake_Temp_Summer", title = ""),
         alt.X("year:O"),
-        # rendo i bordi dei boxplot visibili
+        # Rendo i bordi dei boxplot visibili
         stroke = alt.value("black"),
         strokeWidth = alt.value(1.5)
         
     )
 
-    # grafico finale
+    # Grafico finale
     final_chart = scatter + boxplot
     
     return final_chart
+
+# Funzione che ricava l'heatmap
+def get_rect(data, lakeinformation):
+    
+    # Costruzione del selectbox delle regioni
+    region = st.selectbox("Regione:", lakeinformation.get_column("region").unique().sort())
+    
+    # Unione dei due dataframe
+    data_temp = data.join(
+        
+        lakeinformation,
+        on = "siteID"
+        
+    ).filter(
+        
+        pl.col("variable").is_in(["Lake_Temp_Summer_Satellite", "Lake_Temp_Summer_InSitu"]),
+        pl.col("region") == region
+    
+    )
+
+    # Costruzione dell'heatmap
+    graph = alt.Chart(data_temp).mark_rect().encode(
+        
+        alt.X("Lake_name:O", title = "Lago"),
+        alt.Y("year:O", sort = "descending", title = "Anno"),
+        alt.Color("value:Q", title = "Temperatura", scale = alt.Scale(
+            
+            scheme = "redblue",
+            reverse = True,
+            # domain = [0, 30] # Il dominio è [0,30] per permettere il confronto dei vari heatmap
+            
+        ))
+        
+    ).properties(
+        
+        height = 500,
+        # larghezza che permette di visualizzare bene tutti gli heatmap
+        width = data_temp.select("siteID").unique().height * 13.8158 + 156
+    )
+    
+    return graph
 
 
 # Caricamento dei dataset
@@ -283,3 +336,6 @@ st.plotly_chart(fig, use_container_width=True)
 
 # Visualizzazione dei boxplot
 st.altair_chart(get_boxplot(data, lakeinformation), use_container_width = True)
+
+# Visualizzazione dell'heatmap con selezione per regione
+st.altair_chart(get_rect(data, lakeinformation))
