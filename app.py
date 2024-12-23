@@ -240,8 +240,8 @@ def get_rect(data, lakeinformation):
         alt.Y("year:O", sort = "descending", title = "Anno"),
         alt.Color("value:Q", title = "Temperatura", scale = alt.Scale(
             
-            scheme = "redblue",
-            reverse = True,
+            scheme = "blueorange",
+            # reverse = True,
             # domain = [0, 30] # Il dominio è [0,30] per permettere il confronto dei vari heatmap
             
         ))
@@ -297,7 +297,7 @@ def get_lineplot(data, lakeID):
         alt.X("year:Q", title = "Anno"),
         opacity = alt.value(0)
         
-    ).add_selection(
+    ).add_params(
         nearest
     )
     
