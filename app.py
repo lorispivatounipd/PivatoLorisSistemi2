@@ -63,8 +63,20 @@ def load_data():
 
     return values, lakeinformation
 
+# Funzione che ritorna l'ID del lago selezionato
+def get_lake(lakeinformation):
+    
+    # Costruzione di colonne per una migliore visualizzazione del selectbox
+    col1, col2, col3 = st.columns([0.15, 0.7, 0.15])
+    
+    # Scelta del lago
+    lake = col2.selectbox("Inserisci il lago:", lakeinformation.get_column("Lake_name").sort())
+
+    # Determinazione dell'ID del lago
+    return lakeinformation.filter(pl.col("Lake_name") == lake)["siteID"]
+
 # Funzione che costruisce lo scattermapbox
-def get_map():
+def get_map(lakeID):
     
     # Color map personalizzato
     color_map = {
@@ -134,6 +146,66 @@ def get_map():
         showlegend = True # Mostra la legenda
         
     )
+    
+    # Ricavo le informazioni del lago selezionato
+    lake_selected = lakeinformation.filter(pl.col("siteID") == lakeID)
+    
+    # Colora il dot del lago selezionato di rosso ed evidenzia il nome del lago
+    fig.add_trace(go.Scattermapbox(
+        
+        lat = lake_selected["latitude"],
+        lon = lake_selected["longitude"],
+        mode = "text+markers",
+        # caratteristiche del marker
+        marker = dict(
+            
+            color = "#ff0000",
+            size = 12,
+            symbol = "circle"
+        ),
+        showlegend = False,
+        hovertext = lake_selected["Lake_name"],
+        text = lake_selected["Lake_name"],
+        hoverinfo = "text",
+        # caratteristiche dell'hover text
+        hoverlabel = dict(
+            
+            bordercolor = "black",
+            bgcolor = "white",
+            # caratteristiche del testo nell'hover text
+            font = dict(
+                
+                color = "black",
+                size = 18,
+                family = "Arial"
+            )
+        ),
+        # caratteristiche del nome visualizzato sopra il marker
+        textfont = dict(
+            
+            color = "black",
+            size = 16
+        ),
+        textposition = "top center"
+    ))
+
+
+    # Configurazione della mappa
+    fig.update_layout(
+        mapbox = dict(
+            
+            style = "carto-positron",
+            zoom = 1,
+            # centratura della mappa in base al lago selezionato
+            center = dict(
+                
+                lat = lake_selected["latitude"][0],
+                lon = lake_selected["longitude"][0]
+            )
+        ),
+        height = 300
+    )
+
     
     return fig
 
@@ -217,8 +289,11 @@ def get_boxplot(_data, _lakeinformation):
 # Funzione che ricava l'heatmap
 def get_rect(data, lakeinformation):
     
+    # Costruzione di colonne per una migliore visualizzazione del selectbox
+    col1, col2 = st.columns([0.3, 0.7])
+    
     # Costruzione del selectbox delle regioni
-    region = st.selectbox("Regione:", lakeinformation.get_column("region").unique().sort())
+    region = col1.selectbox("Regione:", lakeinformation.get_column("region").unique().sort())
     
     # Unione dei due dataframe
     data_temp = data.join(
@@ -339,85 +414,45 @@ def get_lineplot(data, lakeID):
 
     return chart
 
+# Funzione che ritorna il titolo e l'introduzione
+def start_page():
+    
+    # Inserimento del titolo centrato
+    style_heading = "text-align: center"
+    st.markdown(f"<h1 style='{style_heading}'>Studio dell'effetto del riscaldamento globale sulle temperature superficiali dell'acqua dei laghi</h1>", unsafe_allow_html=True)
+    st.divider()
+
+    col1, col2, col3 = st.columns([0.15, 0.7, 0.15])
+
+    # Inserimento dell'introduzione
+    col2.markdown("""Il cambiamento ambientale globale ha influenzato le temperature superficiali dei laghi, un fattore chiave per la struttura e
+    la funzione degli ecosistemi.  
+    Studi recenti hanno suggerito un riscaldamento significativo delle temperature dell'acqua in laghi individuali
+    in molte regioni del mondo.  
+    Tuttavia, la coerenza spaziale e temporale associata all'entità di queste tendenze rimane poco chiara.  
+    Pertanto, è necessario un set di dati globale sulle temperature dell'acqua per comprendere e sintetizzare le tendenze a lungo termine
+    delle temperature superficiali delle acque interne.  
+    E' stato assemblato un [database](https://search.dataone.org/view/https%3A%2F%2Fpasta.lternet.edu%2Fpackage%2Fmetadata%2Feml%2Fknb-lter-ntl%2F10001%2F4) delle temperature superficiali estive di 291 laghi,
+    raccolte in situ e/o tramite satelliti, per il periodo 1985–2009. Inoltre, per ciascun lago sono stati raccolti i relativi fattori
+    climatici (*temperature dell'aria, radiazione solare e copertura nuvolosa*) e le caratteristiche geomorfometriche (*latitudine, longitudine,
+    altitudine, superficie del lago, profondità massima, profondità media e volume*) che influenzano le temperature superficiali dei laghi.""")
+
+
 
 # Caricamento dei dataset
 data, lakeinformation = load_data()
 
-# Scelta del lago
-lake = st.selectbox("Inserisci il lago:", lakeinformation.get_column("Lake_name").sort())
+# Inserisco il titolo e l'introduzione
+start_page()
 
-# Determinazione dell'ID del lago
-lakeID = lakeinformation.filter(pl.col("Lake_name") == lake)["siteID"]
+# Scelta del lago
+lakeID = get_lake(lakeinformation)
 
 # Visualizzazione del grafico delle temperature dell'aria
 st.altair_chart(get_lineplot(data, lakeID), use_container_width = True)
 
-# Ricavo lo scattermapbox base
-fig = get_map()
-
-# Ricavo le informazioni del lago selezionato
-lake_selected = lakeinformation.filter(pl.col("siteID") == lakeID)
-
-# Colora il dot del lago selezionato di rosso ed evidenzia il nome del lago
-fig.add_trace(go.Scattermapbox(
-    
-    lat = lake_selected["latitude"],
-    lon = lake_selected["longitude"],
-    mode = "text+markers",
-    # caratteristiche del marker
-    marker = dict(
-        
-        color = "#ff0000",
-        size = 12,
-        symbol = "circle"
-    ),
-    showlegend = False,
-    hovertext = lake_selected["Lake_name"],
-    text = lake_selected["Lake_name"],
-    hoverinfo = "text",
-    # caratteristiche dell'hover text
-    hoverlabel = dict(
-        
-        bordercolor = "black",
-        bgcolor = "white",
-        # caratteristiche del testo nell'hover text
-        font = dict(
-            
-            color = "black",
-            size = 18,
-            family = "Arial"
-        )
-    ),
-    # caratteristiche del nome visualizzato sopra il marker
-    textfont = dict(
-        
-        color = "black",
-        size = 16
-    ),
-    textposition = "top center"
-))
-
-
-# Configurazione della mappa
-# (Questa parte di codice non è stata inserita nella fnuzione get_map perchè la mappa
-# si aggiorna ad ogni ricentratura dovuta dalla selezione di un lago)
-fig.update_layout(
-    mapbox = dict(
-        
-        style = "carto-positron",
-        zoom = 1,
-        # centratura della mappa in base al lago selezionato
-        center = dict(
-            
-            lat = lake_selected["latitude"][0],
-            lon = lake_selected["longitude"][0]
-        )
-    ),
-    height = 300
-)
-
 # Visualizzazione dello scattermapbox
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(get_map(lakeID), use_container_width=True)
 
 # Visualizzazione dei boxplot
 st.altair_chart(get_boxplot(data, lakeinformation), use_container_width = True)
