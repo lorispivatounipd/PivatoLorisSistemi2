@@ -271,7 +271,7 @@ def get_lineplot(data, lakeID):
     line = alt.Chart(
         
         data.filter(
-            pl.col("variable").is_in(["Air_Temp_Mean_Annual_NCEP", "Air_Temp_Mean_Summer_NCEP", "Air_Temp_Mean_Winter_NCEP"]),
+            pl.col("variable").is_in(["Air_Temp_Mean_Annual_CRU", "Air_Temp_Mean_Summer_CRU", "Air_Temp_Mean_Winter_CRU"]),
             pl.col("siteID") == lakeID
         )
         
