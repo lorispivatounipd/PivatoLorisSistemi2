@@ -63,6 +63,45 @@ def load_data():
 
     return values, lakeinformation
 
+# Funzione che prende una riga di un dataframe e ritorna un dataframe
+# con valori 0.5 al posto dei valori mancanti
+def convert_null(df):
+    
+    # Riorganizzazione del dataframe
+    df = df.pivot(on = "year", values = "value")
+    
+    # Colonne che devono rimanere invariate
+    columns_to_keep = df.columns[:2]
+    
+    # Trasformazione in valori nulli dei valori in eccesso
+    df1 =  df.select([
+        pl.col(c) if c in columns_to_keep else pl.lit(None).alias(c)
+        for c in df.columns
+    ])
+    
+    # Controllo per colonne non presenti a causa dei valori mancanti
+    columns_to_add = [str(year) for year in range(1985, 2010)]
+    
+    # Controlla se la colonna esiste e d eventualmente la aggiunge
+    for col in columns_to_add:
+        if col not in df1.columns:
+            df1 = df1.with_columns(pl.lit(0.5).alias(col))
+    
+    # Riorganizzazione del dataframe
+    df1 = df1.unpivot(
+            on = [str(year) for year in range(1985, 2010)]
+        
+        # Eliminazione dei valori nulli
+        ).drop_nulls(
+        ).with_columns(
+            pl.lit("No data").alias("label")
+        ).rename(
+            {"variable": "year"}
+        ).with_columns(
+            pl.col("year").cast(pl.Int64).alias("year"))
+    
+    return df1
+
 # Funzione che ritorna l'ID del lago selezionato
 def get_lake(lakeinformation):
     
@@ -417,6 +456,17 @@ def get_lineplot(data, lakeID):
 # Funzione che ricava i tre barplot della copertura nuvolosa in inverno, annuale ed in estate
 def get_barplot_cloud(data, lakeID):
     
+    # Suddivisione del dataframe per semplificarne l'utilizzo
+    data_winter = data.filter(
+        pl.col("variable") == "Cloud_Cover_Winter",
+        pl.col("siteID") == lakeID)
+    data_annual = data.filter(
+        pl.col("variable") == "Cloud_Cover_Annual",
+        pl.col("siteID") == lakeID)
+    data_summer = data.filter(
+        pl.col("variable") == "Cloud_Cover_Summer",
+        pl.col("siteID") == lakeID)
+    
     # Creo un select point per marcare una barra quando selezionata
     select = alt.selection_point(name = "select", on = "click")
     
@@ -437,11 +487,8 @@ def get_barplot_cloud(data, lakeID):
     )
 
     # Barplot della copertura nuvolosa in inverno
-    cloud1 = alt.Chart(data.filter(
+    cloud1 = alt.Chart(data_winter,
         
-            pl.col("variable") == "Cloud_Cover_Winter",
-            pl.col("siteID") == lakeID),
-            
         # Altezza del grafico
         height=200
     
@@ -474,9 +521,7 @@ def get_barplot_cloud(data, lakeID):
     ).add_params(select, highlight)
 
     # Barplot della copertura nuvolosa media annuale
-    cloud2 = alt.Chart(data.filter(
-                pl.col("variable") == "Cloud_Cover_Annual",
-                pl.col("siteID") == lakeID),
+    cloud2 = alt.Chart(data_annual,
             height = 200
     ).mark_bar(
         fill = "#4C78A8",
@@ -492,9 +537,7 @@ def get_barplot_cloud(data, lakeID):
     ).add_params(select, highlight)
 
     # Barplot della copertura nuvolosa in inverno
-    cloud3 = alt.Chart(data.filter(
-                pl.col("variable") == "Cloud_Cover_Summer",
-                pl.col("siteID") == lakeID),
+    cloud3 = alt.Chart(data_summer,
             height=200
     ).mark_bar(
         fill="#4C78A8",
@@ -509,17 +552,12 @@ def get_barplot_cloud(data, lakeID):
         strokeWidth = stroke_width,
     ).add_params(select, highlight)
 
-    # Inserimento del testo "No data" nei valori mancanti del barplot annuale
-    text2 = alt.Chart(pl.DataFrame(
-        {
-            # Creazione di un dataframe per l'inserimento dei "No data"
-            "year": [1984.75, 1987.75, 1993.75, 1994.75],
-            "value": [0.5, 0.5, 0.5, 0.5],
-            "label": ["No data", "No data", "No data" ,"No data"],
-        }
+    # Inserimento del testo "No data" nei valori mancanti del barplot invernale
+    text1 = alt.Chart(
+        convert_null(data_winter)
         
     # Definizione del testo
-    )).mark_text(
+    ).mark_text(
         align = "left",
         baseline = "bottom",
         fontSize = 14,
@@ -531,15 +569,29 @@ def get_barplot_cloud(data, lakeID):
         y = "value",
         text = "label"
     )
+    
+    # Inserimento del testo "No data" nei valori mancanti del barplot annuale
+    text2 = alt.Chart(
+        convert_null(data_annual)
+        
+    ).mark_text(
+        align = "left",
+        baseline = "bottom",
+        fontSize = 14,
+        fontWeight = 600,
+        color = "black",
+        angle = 90
+    ).encode(
+        x = "year",
+        y = "value",
+        text = "label"
+    )
 
     # Inserimento del testo "No data" nei valori mancanti del barplot estivo
-    text3 = alt.Chart(pl.DataFrame(
-        {
-            "year": [1984.75, 1994.75],
-            "value": [0.5, 0.5],
-            "label": ["No data", "No data"],
-        }
-    )).mark_text(
+    text3 = alt.Chart(
+        convert_null(data_summer)
+        
+    ).mark_text(
         align = "left",
         baseline = "bottom",
         fontSize = 14,
@@ -553,9 +605,14 @@ def get_barplot_cloud(data, lakeID):
     )
 
     # Visualizzazione dei tre barplot
-    st.altair_chart(cloud1, use_container_width = True)
-    st.altair_chart(cloud2 + text2, use_container_width = True)
-    st.altair_chart(cloud3 + text3, use_container_width = True)
+    if convert_null(data_winter).is_empty(): st.altair_chart(cloud1 , use_container_width = True)
+    else: st.altair_chart(cloud1 + text1 , use_container_width = True)
+    
+    if convert_null(data_annual).is_empty(): st.altair_chart(cloud2, use_container_width = True)
+    else: st.altair_chart(cloud2 + text2, use_container_width = True)
+    
+    if convert_null(data_summer).is_empty(): st.altair_chart(cloud3, use_container_width = True)
+    else: st.altair_chart(cloud3 + text3, use_container_width = True)
 
 # Funzione che ritorna il titolo e l'introduzione
 def start_page():
