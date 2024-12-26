@@ -414,6 +414,149 @@ def get_lineplot(data, lakeID):
 
     return chart
 
+# Funzione che ricava i tre barplot della copertura nuvolosa in inverno, annuale ed in estate
+def get_barplot_cloud(data, lakeID):
+    
+    # Creo un select point per marcare una barra quando selezionata
+    select = alt.selection_point(name = "select", on = "click")
+    
+    # Creo un select point per evidenziare una barra al passaggio del cursore
+    highlight = alt.selection_point(name = "highlight", on = "pointerover", empty = False)
+
+    # Creo una funzione che definisce lo spessore della barra all'interazione
+    stroke_width = (
+        
+        # Spessore 4 quando la barra viene selezionata
+        alt.when(select).then(alt.value(4, empty=False))
+        
+        # Spessore 2 quando avviene il passaggio del cursore
+        .when(highlight).then(alt.value(2))
+        
+        # Spessore 0 altrimenti
+        .otherwise(alt.value(0))
+    )
+
+    # Barplot della copertura nuvolosa in inverno
+    cloud1 = alt.Chart(data.filter(
+        
+            pl.col("variable") == "Cloud_Cover_Winter",
+            pl.col("siteID") == lakeID),
+            
+        # Altezza del grafico
+        height=200
+    
+    # Definizione delle barre
+    ).mark_bar(
+        
+        fill = "#4C78A8", # Colore della barra
+        stroke = "black", # Colore del bordo
+        cursor = "pointer", # Tipologia dell'interazione col cursore
+        size = 25 # Larghezza della barra
+        
+    ).encode(
+        
+        # Asse X
+        alt.X("year", axis = alt.Axis(format = ".0f"), scale = alt.Scale(zero = False), title = ""),
+        
+        # Asse Y
+        alt.Y("value:Q", scale = alt.Scale(domain = [0, 1]), title="Inverno"),
+        
+        # Definizione delle informazioni mostrate sopra il cursore al suo passaggio
+        tooltip = [alt.Tooltip("value", title = "Percentuale"), alt.Tooltip("year", title="Anno")],
+        
+        # Definizione dell'opacità delle barre quando una viene selezionata
+        fillOpacity = alt.when(select).then(alt.value(1)).otherwise(alt.value(0.3)),
+        
+        # Larghezza del bordo delle barre
+        strokeWidth = stroke_width,
+        
+    # Aggiunta dei parametri per l'interazione
+    ).add_params(select, highlight)
+
+    # Barplot della copertura nuvolosa media annuale
+    cloud2 = alt.Chart(data.filter(
+                pl.col("variable") == "Cloud_Cover_Annual",
+                pl.col("siteID") == lakeID),
+            height = 200
+    ).mark_bar(
+        fill = "#4C78A8",
+        stroke = "black",
+        cursor = "pointer",
+        size = 25
+    ).encode(
+        alt.X("year", axis = alt.Axis(format = ".0f"), scale = alt.Scale(zero = False), title = ""),
+        alt.Y("value:Q", scale = alt.Scale(domain = [0, 1]), title = "Annuale"),
+        tooltip = [alt.Tooltip("value", title = "Percentuale"), alt.Tooltip("year", title = "Anno")],
+        fillOpacity = alt.when(select).then(alt.value(1)).otherwise(alt.value(0.3)),
+        strokeWidth = stroke_width,
+    ).add_params(select, highlight)
+
+    # Barplot della copertura nuvolosa in inverno
+    cloud3 = alt.Chart(data.filter(
+                pl.col("variable") == "Cloud_Cover_Summer",
+                pl.col("siteID") == lakeID),
+            height=200
+    ).mark_bar(
+        fill="#4C78A8",
+        stroke="black",
+        cursor="pointer",
+        size=25
+    ).encode(
+        alt.X("year", axis = alt.Axis(format = ".0f"), scale = alt.Scale(zero = False), title = ""),
+        alt.Y("value:Q", scale = alt.Scale(domain = [0, 1]), title = "Estate"),
+        tooltip = [alt.Tooltip("value", title = "Percentuale"), alt.Tooltip("year", title = "Anno")],
+        fillOpacity = alt.when(select).then(alt.value(1)).otherwise(alt.value(0.3)),
+        strokeWidth = stroke_width,
+    ).add_params(select, highlight)
+
+    # Inserimento del testo "No data" nei valori mancanti del barplot annuale
+    text2 = alt.Chart(pl.DataFrame(
+        {
+            # Creazione di un dataframe per l'inserimento dei "No data"
+            "year": [1984.75, 1987.75, 1993.75, 1994.75],
+            "value": [0.5, 0.5, 0.5, 0.5],
+            "label": ["No data", "No data", "No data" ,"No data"],
+        }
+        
+    # Definizione del testo
+    )).mark_text(
+        align = "left",
+        baseline = "bottom",
+        fontSize = 14,
+        fontWeight = 600,
+        color = "black",
+        angle = 90 # Rotazione del testo per renderlo verticale
+    ).encode(
+        x = "year",
+        y = "value",
+        text = "label"
+    )
+
+    # Inserimento del testo "No data" nei valori mancanti del barplot estivo
+    text3 = alt.Chart(pl.DataFrame(
+        {
+            "year": [1984.75, 1994.75],
+            "value": [0.5, 0.5],
+            "label": ["No data", "No data"],
+        }
+    )).mark_text(
+        align = "left",
+        baseline = "bottom",
+        fontSize = 14,
+        fontWeight = 600,
+        color = "black",
+        angle = 90
+    ).encode(
+        x = "year",
+        y = "value",
+        text = "label"
+    )
+
+    # Visualizzazione dei tre barplot
+    st.altair_chart(cloud1, use_container_width = True)
+    st.altair_chart(cloud2 + text2, use_container_width = True)
+    st.altair_chart(cloud3 + text3, use_container_width = True)
+
 # Funzione che ritorna il titolo e l'introduzione
 def start_page():
     
@@ -459,3 +602,6 @@ st.altair_chart(get_boxplot(data, lakeinformation), use_container_width = True)
 
 # Visualizzazione dell'heatmap con selezione per regione
 st.altair_chart(get_rect(data, lakeinformation))
+
+# Visualizzazione dei barplot della copertura nuvolosa in inverno, annuale ed in estate
+get_barplot_cloud(data, lakeID)
