@@ -2,6 +2,7 @@ import polars as pl
 import streamlit as st
 import plotly.graph_objects as go
 import altair as alt
+from vega_datasets import data as countries_data
 
 # Configurazione della pagina web
 st.set_page_config(
@@ -115,7 +116,7 @@ def get_lake(lakeinformation):
     return lakeinformation.filter(pl.col("Lake_name") == lake)["siteID"]
 
 # Funzione che costruisce lo scattermapbox
-def get_map(lakeID):
+def get_map_interactive(lakeID):
     
     # Color map personalizzato
     color_map = {
@@ -249,7 +250,7 @@ def get_map(lakeID):
     st.plotly_chart(fig, use_container_width = True)
 
 # Funzione che costruisce i boxplot
-def get_boxplot(_data, _lakeinformation):
+def get_boxplot(data, lakeinformation):
     
     # Riordino e pulizia dei dati per semplicità d'utilizzo
     graph_data = data.filter(
@@ -288,7 +289,7 @@ def get_boxplot(_data, _lakeinformation):
         
         alt.Y("Lake_Temp_Summer", title = "Temperatura (°C)"),
         alt.X("year:O", title = "Anno"),
-        alt.Color("region", title = "regione").scale(scheme="category10"),
+        alt.Color("region", title = "Regione").scale(scheme="category10"),
         # Offset dei singoli punti in modo randomico
         xOffset = "jitter:Q",
         # Visualizzazione del nome del lago al passaggio del cursore
@@ -665,7 +666,45 @@ def get_lineplot_radiation(data, lakeID):
         height = 300
     )
 
+    # Visualizzazione del grafico
     st.altair_chart(chart, use_container_width = True)
+
+# Funzione che costruisce la mappa per visualizzare il metodo di campionamento
+def get_map_method(countries_data, lakeinformation):
+    
+    # Ricavo le informazioni per costruire la mappa del mondo
+    countries = alt.topo_feature(countries_data.world_110m.url, "countries")
+
+    # Costruzione della mappa del mondo
+    background = alt.Chart(countries).mark_geoshape(
+        fill = "lightgray",
+        stroke = "white",
+        tooltip = None
+    ).project("equirectangular").properties(
+        # width=500,
+        # height=400
+    )
+
+    # Inserimento dei laghi sulla mappa
+    figure = alt.Chart(lakeinformation).mark_circle().encode(
+        longitude = "longitude:Q",
+        latitude = "latitude:Q",
+        size = alt.value(15),
+        # Distinzione del metodo per colori
+        color = alt.Color("source").scale(range=["blue", "red"]),
+        # Modifica del tooltip
+        tooltip = [alt.Tooltip("Lake_name", title = "Nome"),
+                   alt.Tooltip("location", title="Stato"),
+                   alt.Tooltip("source", title="Metodo")]
+    ).project(
+        "equirectangular"
+    ).properties(
+        # width=500,
+        # height=400
+    )
+
+    # Visualizzazione del grafico finale
+    st.altair_chart(background + figure, use_container_width=True)
 
 # Funzione che ritorna il titolo e l'introduzione
 def start_page():
@@ -735,7 +774,7 @@ def background():
     # Visualizzazione dei boxplot
     cont.altair_chart(get_boxplot(data, lakeinformation), use_container_width = True)
     
-    col2.divider()
+    st.divider()
 
 
 # Caricamento dei dataset
@@ -754,7 +793,10 @@ lakeID = get_lake(lakeinformation)
 get_lineplot_air_temp(data, lakeID)
 
 # Visualizzazione dello scattermapbox
-get_map(lakeID)
+get_map_interactive(lakeID)
+
+# Visualizzazione della mappa per vedere i metodi di campionamento
+get_map_method(countries_data, lakeinformation)
 
 # Visualizzazione dell'heatmap con selezione per regione
 get_rect(data, lakeinformation)
@@ -762,4 +804,5 @@ get_rect(data, lakeinformation)
 # Visualizzazione dei barplot della copertura nuvolosa in inverno, annuale ed in estate
 get_barplot_cloud(data, lakeID)
 
+# Visualizzazione del grafico della radiazione totale in inverno, annuale ed in estate
 get_lineplot_radiation(data, lakeID)
