@@ -691,7 +691,7 @@ def get_map_method(countries_data, lakeinformation):
         latitude = "latitude:Q",
         size = alt.value(15),
         # Distinzione del metodo per colori
-        color = alt.Color("source").scale(range=["blue", "red"]),
+        color = alt.Color("source", title = "Metodo di campionamento").scale(range=["blue", "red"]),
         # Modifica del tooltip
         tooltip = [alt.Tooltip("Lake_name", title = "Nome"),
                    alt.Tooltip("location", title="Stato"),
@@ -702,9 +702,11 @@ def get_map_method(countries_data, lakeinformation):
         # width=500,
         # height=400
     )
+    
+    col1, col2, col3 = st.columns([0.15, 0.7, 0.15])
 
     # Visualizzazione del grafico finale
-    st.altair_chart(background + figure, use_container_width=True)
+    col2.altair_chart(background + figure, use_container_width=True)
 
 # Funzione che ritorna il titolo e l'introduzione
 def start_page():
@@ -725,12 +727,11 @@ def start_page():
     Pertanto, è necessario un set di dati globale sulle temperature dell'acqua per comprendere e sintetizzare le tendenze a lungo termine
     delle temperature superficiali delle acque interne.  
     E' stato assemblato un [database](https://search.dataone.org/view/https%3A%2F%2Fpasta.lternet.edu%2Fpackage%2Fmetadata%2Feml%2Fknb-lter-ntl%2F10001%2F4) delle temperature superficiali estive di 291 laghi,
-    raccolte in situ e/o tramite satelliti, perun periodo di 25 anni (1985-2009). Inoltre, per ciascun lago sono stati raccolti i relativi fattori
+    raccolte in situ o tramite satelliti, perun periodo di 25 anni (1985-2009). Inoltre, per ciascun lago sono stati raccolti i relativi fattori
     climatici (*temperature dell'aria, radiazione solare e copertura nuvolosa*) e le caratteristiche geomorfometriche (*latitudine, longitudine,
     altitudine, superficie del lago, profondità massima, profondità media e volume*) che influenzano le temperature superficiali dei laghi.""")
     
     col2.divider()
-
 
 # Funzione che ritorna il contesto e la sintesi
 def background():
@@ -776,6 +777,31 @@ def background():
     
     st.divider()
 
+# Funzione che ritorna i metodi di campionamento della temperatura dell'acqua
+def methods():
+    
+    col1, col2, col3 = st.columns([0.15, 0.7, 0.15])
+    
+    col2.markdown("""
+    ## Metodi di campionamento
+    ### :blue[●] In situ
+    Sono state raccolte le temperature superficiali dell'acqua misurate in situ di 137 laghi. Questi laghi sono stati
+    campionati almeno mensilmente durante l'estate, generalmente tra il 1985 e il 2009.  
+    L'acqua superficiale è stata definita come lo strato compreso tra 0 e 1 m al di sotto della superficie nella maggior parte dei laghi.
+    Di seguito, è descritta la metodologia di campionamento utilizzata per ciascun lago.
+    
+    ### :red[●] Satellite
+    Sono state raccolte temperature superficiali dell'acqua da satelliti per 154 laghi. Sono stati selezionati solo i laghi che presentavano
+    un'area di almeno 10 × 10 km di superficie d'acqua pura, senza isole o coste, per garantire l'assenza di contaminazioni da superfici terrestri.  
+    Tutte le misurazioni sono state raccolte durante la notte in questo studio. L'orario di campionamento è esclusivamente compreso tra le 22:00 e 5:00,
+    con la maggior parte delle misurazioni compresa tra le 1:00 e 5:00. L'utilizzo esclusivo di dati notturni garantisce che la temperatura superficiale
+    dell'acqua del lago rimanga per lo più costante e non sia influenzata dal riscaldamento diurno.
+    """)
+
+    # Visualizzazione della mappa per vedere i metodi di campionamento
+    get_map_method(countries_data, lakeinformation)
+    
+    st.divider()
 
 # Caricamento dei dataset
 data, lakeinformation = load_data()
@@ -786,6 +812,9 @@ start_page()
 # Inserimento del contesto e sintesi
 background()
 
+# Inserimento dei metodi di campionamento della temperature dell'acqua
+methods()
+
 # Scelta del lago
 lakeID = get_lake(lakeinformation)
 
@@ -794,9 +823,6 @@ get_lineplot_air_temp(data, lakeID)
 
 # Visualizzazione dello scattermapbox
 get_map_interactive(lakeID)
-
-# Visualizzazione della mappa per vedere i metodi di campionamento
-get_map_method(countries_data, lakeinformation)
 
 # Visualizzazione dell'heatmap con selezione per regione
 get_rect(data, lakeinformation)
