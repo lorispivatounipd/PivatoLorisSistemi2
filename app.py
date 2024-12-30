@@ -288,7 +288,7 @@ def get_boxplot(_data, _lakeinformation):
         
         alt.Y("Lake_Temp_Summer", title = "Temperatura (°C)"),
         alt.X("year:O", title = "Anno"),
-        alt.Color("region").scale(scheme="category10"),
+        alt.Color("region", title = "regione").scale(scheme="category10"),
         # Offset dei singoli punti in modo randomico
         xOffset = "jitter:Q",
         # Visualizzazione del nome del lago al passaggio del cursore
@@ -633,17 +633,64 @@ def start_page():
     Pertanto, è necessario un set di dati globale sulle temperature dell'acqua per comprendere e sintetizzare le tendenze a lungo termine
     delle temperature superficiali delle acque interne.  
     E' stato assemblato un [database](https://search.dataone.org/view/https%3A%2F%2Fpasta.lternet.edu%2Fpackage%2Fmetadata%2Feml%2Fknb-lter-ntl%2F10001%2F4) delle temperature superficiali estive di 291 laghi,
-    raccolte in situ e/o tramite satelliti, per il periodo 1985–2009. Inoltre, per ciascun lago sono stati raccolti i relativi fattori
+    raccolte in situ e/o tramite satelliti, perun periodo di 25 anni (1985-2009). Inoltre, per ciascun lago sono stati raccolti i relativi fattori
     climatici (*temperature dell'aria, radiazione solare e copertura nuvolosa*) e le caratteristiche geomorfometriche (*latitudine, longitudine,
     altitudine, superficie del lago, profondità massima, profondità media e volume*) che influenzano le temperature superficiali dei laghi.""")
+    
+    col2.divider()
 
+
+# Funzione che ritorna il contesto e la sintesi
+def background():
+
+    col1, col2, col3 = st.columns([0.15, 0.7, 0.15])
+    
+    col2.markdown("""
+    ## Conteso e Sintesi
+    Gli ecosistemi di acqua dolce sono vulnerabili agli effetti dei cambiamenti ambientali globali.
+    I laghi sono sentinelle del cambiamento climatico e rappresentano un efficace indicatore della risposta limnologica
+    al cambiamento climatico globale, poiché integrano fattori climatici e paesaggistici. Le temperature superficiali dei
+    laghi possono influenzare, direttamente o indirettamente, i processi fisici, chimici e biologici di un lago,
+    inclusa la temperatura della zona fotosintetica, la stabilità della colonna d'acqua, la produttività primaria
+    del lago, i cambiamenti di distribuzione delle specie ittiche e le interazioni tra specie.  
+    I fattori climatici, tra cui la temperatura dell'aria, la copertura nuvolosa e la radiazione solare,
+    insieme ai fattori geomorfometrici, come l'area superficiale e la profondità del lago, influenzano le temperature
+    superficiali dell'acqua nei laghi.  
+    Tra il 1986 e il 2005, le temperature globali dell'aria sono aumentate di 0,61 °C ([riferimento](https://scholar.google.com/scholar_lookup?title=IPCC%20fifth%20assessment%20report%2C%20climate%20change%202013%3A%20The%20physical%20science%20basis&journal=IPCC&volume=AR5&pages=31-39&publication_year=2013&author=Hartmann%2CDL&author=Tank%2CAMGK&author=Rusticucci%2CM)).
+    Le temperature dell'acqua sono aumentate nelle ultime decadi, in concomitanza con il cambiamento delle temperature dell'aria,
+    con poche eccezioni. Generalmente, le temperature dell'acqua tendono a riflettere quelle regionali dell'aria,
+    riscaldandosi o raffreddandosi a tassi simili. Tuttavia, in alcune regioni, come quella dei Grandi Laghi
+    del Nord America e dell'Europa settentrionale, i corpi idrici si riscaldano più rapidamente rispetto all'aria
+    circostante.  
+    La radiazione solare è una componente chiave del bilancio termico dei laghi. L'aumento della radiazione solare
+    incidente incrementa le temperature medie dei laghi. La copertura nuvolosa può ridurre la radiazione solare incidente,
+    ma al contempo comporta una maggiore radiazione a onde lunghe. Di conseguenza, l'influenza
+    della copertura nuvolosa sulle temperature dei laghi può essere bidirezionale e complessa.
+    Le proprietà specifiche di un lago, come profondità, superficie e volume, possono modulare gli effetti di questi
+    fattori climatici e influenzare le temperature dei laghi. Ad esempio, le temperature superficiali dell'acqua
+    risultano inversamente correlate con la profondità media. In generale, i laghi più bassi tendono a riscaldarsi
+    più rapidamente e a presentare temperature superficiali più elevate rispetto ai laghi profondi, che hanno maggiori capacità
+    di immagazzinare calore. Tuttavia, su ampia scala spaziale, i fattori climatici esercitano un'influenza maggiore sulle
+    temperature superficiali rispetto alla morfologia del lago.""")
+    
+    # Creazione di un container per una migliore visualizzazione
+    cont = st.container(border = True)
+    
+    # Creazione del caption
+    cont.caption("Boxplot delle temperature dei laghi")
+    
+    # Visualizzazione dei boxplot
+    cont.altair_chart(get_boxplot(data, lakeinformation), use_container_width = True)
 
 
 # Caricamento dei dataset
 data, lakeinformation = load_data()
 
-# Inserisco il titolo e l'introduzione
+# Inserimento del titolo e dell'introduzione
 start_page()
+
+# Inserimento del contesto e sintesi
+background()
 
 # Scelta del lago
 lakeID = get_lake(lakeinformation)
@@ -653,9 +700,6 @@ st.altair_chart(get_lineplot(data, lakeID), use_container_width = True)
 
 # Visualizzazione dello scattermapbox
 st.plotly_chart(get_map(lakeID), use_container_width=True)
-
-# Visualizzazione dei boxplot
-st.altair_chart(get_boxplot(data, lakeinformation), use_container_width = True)
 
 # Visualizzazione dell'heatmap con selezione per regione
 st.altair_chart(get_rect(data, lakeinformation))
