@@ -245,8 +245,8 @@ def get_map(lakeID):
         height = 300
     )
 
-    
-    return fig
+    # Visualizzazione della mappa
+    st.plotly_chart(fig, use_container_width = True)
 
 # Funzione che costruisce i boxplot
 def get_boxplot(_data, _lakeinformation):
@@ -325,7 +325,7 @@ def get_boxplot(_data, _lakeinformation):
     
     return final_chart
 
-# Funzione che ricava l'heatmap
+# Funzione che costruisce l'heatmap
 def get_rect(data, lakeinformation):
     
     # Costruzione di colonne per una migliore visualizzazione del selectbox
@@ -367,10 +367,11 @@ def get_rect(data, lakeinformation):
         width = data_temp.select("siteID").unique().height * 13.8158 + 156
     )
     
-    return graph
+    # Visualizzazione dell'heatmap
+    st.altair_chart(graph)
 
-# Funzione che ricava il grafico della temperatura dell'aria nel tempo
-def get_lineplot(data, lakeID):
+# Funzione che costruisce il grafico della temperatura dell'aria nel tempo in inverno, annuale ed in estate
+def get_lineplot_air_temp(data, lakeID):
     
     # Crea un selection point che identifica il punto più vicino al cursore basato sull'asse X "Anno"
     nearest = alt.selection_point(
@@ -451,9 +452,10 @@ def get_lineplot(data, lakeID):
         height=300
     )
 
-    return chart
+    # Visualizzazione del grafico
+    st.altair_chart(chart, use_container_width = True)
 
-# Funzione che ricava i tre barplot della copertura nuvolosa in inverno, annuale ed in estate
+# Funzione che costruisce i tre barplot della copertura nuvolosa in inverno, annuale ed in estate
 def get_barplot_cloud(data, lakeID):
     
     # Suddivisione del dataframe per semplificarne l'utilizzo
@@ -614,6 +616,57 @@ def get_barplot_cloud(data, lakeID):
     if convert_null(data_summer).is_empty(): st.altair_chart(cloud3, use_container_width = True)
     else: st.altair_chart(cloud3 + text3, use_container_width = True)
 
+# Funzione che costruisce il grafico della radiazione totale in inverno, annuale ed in estate
+def get_lineplot_radiation(data, lakeID):
+    
+    # Filtro del dataframe per semplificarne l'utilizzo
+    data_rad = data.filter(
+            pl.col("variable").is_in(["Radiation_Total_Summer", "Radiation_Total_Annual", "Radiation_Total_Winter"]),
+            pl.col("siteID") == lakeID
+        )
+    
+    # Creazione di un dominio per una migliore visualizzazione del grafico
+    custom_domain = [
+        data_rad.min()["value"][0] - 50,
+        data_rad.max()["value"][0] + 50
+    ]
+    
+    # Creazione del grafico
+    chart = alt.Chart(
+        data_rad
+        
+    # Implementazione del gradiente colorato
+    ).mark_area(
+        opacity = 0.3,
+        line = {"color": "black"},
+        color = alt.Gradient(
+            gradient = "linear",
+            stops = [
+                alt.GradientStop(color = "white", offset = 0),
+                alt.GradientStop(color = "", offset = 1)
+            ],
+            x1 = 1,
+            x2 = 10,
+            y1 = 1,
+            y2 = 1
+        )
+        
+    ).encode(
+        # Asse X
+        alt.X("year:Q", axis = alt.Axis(format = ".0f"), title = "Anno"),
+        # Asse Y
+        alt.Y("value:Q", title = "Radiazioni", scale = alt.Scale(domain = custom_domain)).stack(None),
+        # Colori delle linee
+        alt.Color("variable"),
+        # Rimozione del tootip
+        tooltip = alt.value(None)
+        
+    ).properties(
+        height = 300
+    )
+
+    st.altair_chart(chart, use_container_width = True)
+
 # Funzione che ritorna il titolo e l'introduzione
 def start_page():
     
@@ -681,6 +734,8 @@ def background():
     
     # Visualizzazione dei boxplot
     cont.altair_chart(get_boxplot(data, lakeinformation), use_container_width = True)
+    
+    col2.divider()
 
 
 # Caricamento dei dataset
@@ -696,13 +751,15 @@ background()
 lakeID = get_lake(lakeinformation)
 
 # Visualizzazione del grafico delle temperature dell'aria
-st.altair_chart(get_lineplot(data, lakeID), use_container_width = True)
+get_lineplot_air_temp(data, lakeID)
 
 # Visualizzazione dello scattermapbox
-st.plotly_chart(get_map(lakeID), use_container_width=True)
+get_map(lakeID)
 
 # Visualizzazione dell'heatmap con selezione per regione
-st.altair_chart(get_rect(data, lakeinformation))
+get_rect(data, lakeinformation)
 
 # Visualizzazione dei barplot della copertura nuvolosa in inverno, annuale ed in estate
 get_barplot_cloud(data, lakeID)
+
+get_lineplot_radiation(data, lakeID)
