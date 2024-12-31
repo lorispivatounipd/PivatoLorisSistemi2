@@ -592,6 +592,62 @@ def get_lineplot_radiation(data, lakeID):
     # Visualizzazione del grafico
     st.altair_chart(chart, use_container_width = True)
 
+# Funzione che costruisce il grafico della temperatura del lago considerando i valori mancanti
+def get_lineplot_lake(data, lakeID):
+    
+    # Filtro del dataframe per semplificarne l'utilizzo
+    data1 = data.filter(
+        pl.col("siteID") == lakeID,
+        pl.col("variable").is_in(["Lake_Temp_Summer_Satellite", "Lake_Temp_Summer_InSitu"])
+    )
+    
+    # Creazione del grafico di dispersione
+    point = alt.Chart(data1).mark_point().encode(
+        # Asse X
+        alt.X("year:Q", 
+            axis = alt.Axis(format = ".0f"), 
+            title = "Anno", 
+            scale = alt.Scale(domain = [1984, 2010])
+        ),
+        # Asse Y
+        alt.Y("value:Q", title = "Temperatura (°C)", scale = alt.Scale(zero = False)),
+        
+    ).properties(
+        # height = 300
+    )
+    
+    # Controllo della presenza di valori mancanti
+    if convert_null(data1).is_empty(): st.altair_chart(point, use_container_width=True)
+    else:
+    
+        # Creazione di una matrice dei valori mancanti (Verrà utilizzata solo la colonna "year")
+        conv = convert_null(data1)
+        graph = point
+        
+        # Creazione di una colonna che segnala l'assenza del dato in corrispondenza dell'anno
+        for year in conv["year"]:
+            
+            # Creazione di un dataframe per la costruzione della colonna
+            rect_data = pl.DataFrame({
+                "x1": [year - 0.5],
+                "x2": [year + 0.5],
+                "label": "No data"
+            })
+            
+            # Creazione della colonna
+            rect = alt.Chart(rect_data).mark_rect(opacity = 0.3).encode(
+                x = "x1",
+                x2 = "x2",
+                color = alt.ColorValue("#FF0000"),
+                tooltip = "label"
+            )
+            
+            # Inserimento della colonna sul grafico di dispersione
+            graph = graph + rect
+        
+        # Visualizzazione del grafico finale
+        st.altair_chart(graph, use_container_width=True)
+
 # Funzione che costruisce la mappa per visualizzare il metodo di campionamento
 def get_map_method(countries_data, lakeinformation):
     
@@ -746,3 +802,6 @@ get_barplot_cloud(data, lakeID)
 
 # Visualizzazione del grafico della radiazione totale in inverno, annuale ed in estate
 get_lineplot_radiation(data, lakeID)
+
+# Visualizzazione del grafico di dispersione della temperatura dell'acqua
+get_lineplot_lake(data, lakeID)
