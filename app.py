@@ -249,83 +249,6 @@ def get_map_interactive(lakeID):
     # Visualizzazione della mappa
     st.plotly_chart(fig, use_container_width = True)
 
-# Funzione che costruisce i boxplot
-def get_boxplot(data, lakeinformation):
-    
-    # Riordino e pulizia dei dati per semplicità d'utilizzo
-    graph_data = data.filter(
-        
-            (pl.col("variable").is_in(["Lake_Temp_Summer_InSitu", "Lake_Temp_Summer_Satellite"]))
-        
-        ).pivot(
-        
-            on = "variable",
-            values = "value"
-        
-        ).join(
-        
-            lakeinformation,
-            on = "siteID"
-        
-        ).with_columns(
-        
-            pl.when(pl.col("source") == "in situ").then(pl.col("Lake_Temp_Summer_InSitu"))
-            .when(pl.col("source") == "satellite").then(pl.col("Lake_Temp_Summer_Satellite"))
-            .otherwise(None)
-            .alias("Lake_Temp_Summer")
-        
-        ).select(
-            pl.col("Lake_Temp_Summer", "region", "year", "Lake_name")
-        )
-    
-    # Costruzione dello scatterplot
-    scatter = alt.Chart(graph_data).mark_circle(
-        
-        binSpacing = 0,
-        size = 8,
-        opacity = 1
-        
-    ).encode(
-        
-        alt.Y("Lake_Temp_Summer", title = "Temperatura (°C)"),
-        alt.X("year:O", title = "Anno"),
-        alt.Color("region", title = "Regione").scale(scheme="category10"),
-        # Offset dei singoli punti in modo randomico
-        xOffset = "jitter:Q",
-        # Visualizzazione del nome del lago al passaggio del cursore
-        tooltip = "Lake_name"
-        
-    # Formula che genera un offset secondo la trasformazione di Box-Muller
-    ).transform_calculate(
-        jitter = "sqrt(-2*log(random()))*cos(2*PI*random())"
-    ).properties(
-        height = 500
-    )
-
-    # Costruzione del boxplot
-    boxplot = alt.Chart(graph_data).mark_boxplot(
-        
-        # Rimuovo i valori outliers già visibili con lo scatterplot
-        outliers = False,
-        size = 25,
-        # Rendo l'area delle scatole invisibile per visualizzare gli scatter sottostanti
-        box = {"fill": None}
-        
-    ).encode(
-        
-        alt.Y("Lake_Temp_Summer", title = ""),
-        alt.X("year:O"),
-        # Rendo i bordi dei boxplot visibili
-        stroke = alt.value("black"),
-        strokeWidth = alt.value(1.5)
-        
-    )
-
-    # Grafico finale
-    final_chart = scatter + boxplot
-    
-    return final_chart
-
 # Funzione che costruisce l'heatmap
 def get_rect(data, lakeinformation):
     
@@ -766,14 +689,8 @@ def background():
     di immagazzinare calore. Tuttavia, su ampia scala spaziale, i fattori climatici esercitano un'influenza maggiore sulle
     temperature superficiali rispetto alla morfologia del lago.""")
     
-    # Creazione di un container per una migliore visualizzazione
-    cont = st.container(border = True)
-    
-    # Creazione del caption
-    cont.caption("Boxplot delle temperature dei laghi")
-    
-    # Visualizzazione dei boxplot
-    cont.altair_chart(get_boxplot(data, lakeinformation), use_container_width = True)
+    # Visualizzazione dell'heatmap con selezione per regione
+    get_rect(data, lakeinformation)
     
     st.divider()
 
@@ -823,9 +740,6 @@ get_lineplot_air_temp(data, lakeID)
 
 # Visualizzazione dello scattermapbox
 get_map_interactive(lakeID)
-
-# Visualizzazione dell'heatmap con selezione per regione
-get_rect(data, lakeinformation)
 
 # Visualizzazione dei barplot della copertura nuvolosa in inverno, annuale ed in estate
 get_barplot_cloud(data, lakeID)
