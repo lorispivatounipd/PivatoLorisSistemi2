@@ -37,7 +37,7 @@ def load_data():
         
         # Rimuovo le colonne superflue
         ).select(
-            pl.col("*").exclude("contributor", "Other_names", "geospatial_accuracy_km", "sampling_time_of_day", "time_period")
+            pl.col("*").exclude("contributor", "Other_names", "geospatial_accuracy_km", "time_period")
         
         # Rimuovo le osservazioni superflue
         ).filter(
@@ -49,7 +49,9 @@ def load_data():
         
         # Formatto la colonna "lake_or_reservoir"
         ).with_columns(
-            pl.col("lake_or_reservoir").str.replace("l", "L").str.strip_chars_end(" ")
+            pl.col("lake_or_reservoir").str.replace("l", "L").str.strip_chars_end(" ").replace(
+                ["Lake", "Reservoir"], ["Naturale", "Artificiale"]
+            )
         
         # Traduco in italiano la colonna "region"
         ).with_columns(
@@ -60,6 +62,16 @@ def load_data():
                 "Europa", "Medio Oriente", "Nord America nord-orientale", "Sud America", "Nord America sud-orientale", "Nord America occidentale"
             ])
             
+        # Formatto la colonna "sampling_depth" dove skin-derived bulk temperature è approssimativamente
+        # equivalente ad 1 metro di profondità
+        ).with_columns(
+            pl.col("sampling_depth").str.replace("skin-derived bulk temperature", "1")
+        
+        # Formatto le colonne "mean_depth_m", "max_depth_m", "volume_km3"
+        ).with_columns(
+            pl.col("mean_depth_m").fill_null("Dato non presente"),
+            pl.col("max_depth_m").fill_null("Dato non presente"),
+            pl.col("volume_km3").fill_null("Dato non presente")
         )
 
     return values, lakeinformation
@@ -102,6 +114,20 @@ def convert_null(df):
             pl.col("year").cast(pl.Int64).alias("year"))
     
     return df1
+
+# Funzione che prende una stringa e ritorna la stringa con l'unità di misura (metri)
+# solo se il dato è presente
+def add_m(text):
+    if text == "Dato non presente":
+        return text
+    return text + " m"
+
+# Funzione che prende una stringa e ritorna la stringa con l'unità di misura (km³)
+# solo se il dato è presente
+def add_km3(text):
+    if text == "Dato non presente":
+        return text
+    return text + " km³"
 
 # Funzione che ritorna l'ID del lago selezionato
 def get_lake(lakeinformation):
@@ -252,8 +278,11 @@ def get_map_interactive(lakeID):
 # Funzione che costruisce l'heatmap
 def get_rect(data, lakeinformation):
     
+    # Costruzione di un container
+    cont = st.container(border = True)
+    
     # Costruzione di colonne per una migliore visualizzazione del selectbox
-    col1, col2 = st.columns([0.3, 0.7])
+    col1, col2 = cont.columns([0.3, 0.7])
     
     # Costruzione del selectbox delle regioni
     region = col1.selectbox("Regione:", lakeinformation.get_column("region").unique().sort())
@@ -272,7 +301,7 @@ def get_rect(data, lakeinformation):
     )
 
     # Costruzione dell'heatmap
-    graph = alt.Chart(data_temp).mark_rect().encode(
+    graph = alt.Chart(data_temp, title = "Temperature medie estive dei laghi in " + region + " (°C)").mark_rect().encode(
         
         alt.X("Lake_name:O", title = "Lago"),
         alt.Y("year:O", sort = "descending", title = "Anno"),
@@ -292,7 +321,7 @@ def get_rect(data, lakeinformation):
     )
     
     # Visualizzazione dell'heatmap
-    st.altair_chart(graph)
+    cont.altair_chart(graph)
 
 # Funzione che costruisce il grafico della temperatura dell'aria nel tempo in inverno, annuale ed in estate
 def get_lineplot_air_temp(data, lakeID):
@@ -706,7 +735,7 @@ def start_page():
     Pertanto, è necessario un set di dati globale sulle temperature dell'acqua per comprendere e sintetizzare le tendenze a lungo termine
     delle temperature superficiali delle acque interne.  
     E' stato assemblato un [database](https://search.dataone.org/view/https%3A%2F%2Fpasta.lternet.edu%2Fpackage%2Fmetadata%2Feml%2Fknb-lter-ntl%2F10001%2F4) delle temperature superficiali estive di 291 laghi,
-    raccolte in situ o tramite satelliti, perun periodo di 25 anni (1985-2009). Inoltre, per ciascun lago sono stati raccolti i relativi fattori
+    raccolte in situ o tramite satelliti, per un periodo di 25 anni (1985-2009). Inoltre, per ciascun lago sono stati raccolti i relativi fattori
     climatici (*temperature dell'aria, radiazione solare e copertura nuvolosa*) e le caratteristiche geomorfometriche (*latitudine, longitudine,
     altitudine, superficie del lago, profondità massima, profondità media e volume*) che influenzano le temperature superficiali dei laghi.""")
     
@@ -721,7 +750,7 @@ def background():
     ## Conteso e Sintesi
     Gli ecosistemi di acqua dolce sono vulnerabili agli effetti dei cambiamenti ambientali globali.
     I laghi sono sentinelle del cambiamento climatico e rappresentano un efficace indicatore della risposta limnologica
-    al cambiamento climatico globale, poiché integrano fattori climatici e paesaggistici. Le temperature superficiali dei
+    al cambiamento climatico globale. Le temperature superficiali dei
     laghi possono influenzare, direttamente o indirettamente, i processi fisici, chimici e biologici di un lago,
     inclusa la temperatura della zona fotosintetica, la stabilità della colonna d'acqua, la produttività primaria
     del lago, i cambiamenti di distribuzione delle specie ittiche e le interazioni tra specie.  
@@ -743,7 +772,8 @@ def background():
     risultano inversamente correlate con la profondità media. In generale, i laghi più bassi tendono a riscaldarsi
     più rapidamente e a presentare temperature superficiali più elevate rispetto ai laghi profondi, che hanno maggiori capacità
     di immagazzinare calore. Tuttavia, su ampia scala spaziale, i fattori climatici esercitano un'influenza maggiore sulle
-    temperature superficiali rispetto alla morfologia del lago.""")
+    temperature superficiali rispetto alla morfologia del lago.  
+    """)
     
     # Visualizzazione dell'heatmap con selezione per regione
     get_rect(data, lakeinformation)
@@ -805,3 +835,96 @@ get_lineplot_radiation(data, lakeID)
 
 # Visualizzazione del grafico di dispersione della temperatura dell'acqua
 get_lineplot_lake(data, lakeID)
+
+
+lake = lakeinformation.filter(pl.col("siteID") == lakeID)
+
+# Creazione di colonne per una visualizzazione migliore
+col1, col2, col3, col4 = st.columns([0.05, 0.7, 0.05, 0.2])
+
+# Colonna a destra per visualizzare le informazioni del lago selezionato
+col4.markdown(
+    """
+    <style>
+        .legend-section {
+            font-family: Arial, sans-serif;
+            margin-bottom: 20px;
+        }
+        .legend-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .legend-item {
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        .legend-name {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+        .color { color: #dc8624; }
+    </style>
+
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Nome del lago</span></div>
+        <div class="legend-name">""" + lake["Lake_name"][0] + """</div>
+    </div>
+
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Tipo di lago</span></div>
+        <div class="legend-item">""" + lake["lake_or_reservoir"][0] + """</div>
+    </div>
+
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Stato</span></div>
+        <div class="legend-item">""" + lake["location"][0] + """</div>
+    </div>
+    
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Regione</span></div>
+        <div class="legend-item">""" + lake["region"][0] + """</div>
+    </div>
+    
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Metodo di campionamento</span></div>
+        <div class="legend-item">""" + lake["source"][0].capitalize() + """</div>
+    </div>
+    
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Elevazione dal livello del mare</span></div>
+        <div class="legend-item">""" + str(lake["elevation_m"][0]).rstrip('0').rstrip('.') + """ m</div>
+    </div>
+    
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Profondità media</span></div>
+        <div class="legend-item">""" + add_m(str(lake["mean_depth_m"][0]).rstrip('0').rstrip('.')) + """</div>
+    </div>
+    
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Profondità massima</span></div>
+        <div class="legend-item">""" + add_m(str(lake["max_depth_m"][0]).rstrip('0').rstrip('.')) + """</div>
+    </div>
+    
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Superficie</span></div>
+        <div class="legend-item">""" + str(lake["surface_area_km2"][0]).rstrip('0').rstrip('.') + """ km²</div>
+    </div>
+    
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Volume</span></div>
+        <div class="legend-item">""" + add_km3(str(lake["volume_km3"][0]).rstrip('0').rstrip('.')) + """</div>
+    </div>
+    
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Profondità di campionamento</span></div>
+        <div class="legend-item">""" + str(lake["sampling_depth"][0]) + """ m</div>
+    </div>
+    
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Orario di campionamento</span></div>
+        <div class="legend-item">""" + lake["sampling_time_of_day"][0] + """</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
