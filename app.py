@@ -37,7 +37,7 @@ def load_data():
         
         # Rimuovo le colonne superflue
         ).select(
-            pl.col("*").exclude("contributor", "Other_names", "geospatial_accuracy_km", "time_period")
+            pl.col("*").exclude("contributor", "Other_names", "geospatial_accuracy_km")
         
         # Rimuovo le osservazioni superflue
         ).filter(
@@ -72,6 +72,13 @@ def load_data():
             pl.col("mean_depth_m").fill_null("Dato non presente"),
             pl.col("max_depth_m").fill_null("Dato non presente"),
             pl.col("volume_km3").fill_null("Dato non presente")
+        
+        # Formatto la colonna "time_period"
+        ).with_columns(
+            pl.col("time_period").replace(
+                ["JAS", "JFM", "JJA"],
+                ["Luglio-Agosto-Settembre", "Gennaio-Febbraio-Marzo", "Giugno-Luglio-Agosto"]
+            )
         )
 
     return values, lakeinformation
@@ -273,7 +280,7 @@ def get_map_interactive(lakeID):
     )
 
     # Visualizzazione della mappa
-    st.plotly_chart(fig, use_container_width = True)
+    return fig
 
 # Funzione che costruisce l'heatmap
 def get_rect(data, lakeinformation):
@@ -326,6 +333,19 @@ def get_rect(data, lakeinformation):
 # Funzione che costruisce il grafico della temperatura dell'aria nel tempo in inverno, annuale ed in estate
 def get_lineplot_air_temp(data, lakeID):
     
+    # Filtro dei dati per semplificarne l'utilizzo
+    data_temp = data.filter(
+        pl.col("variable").is_in(["Air_Temp_Mean_Annual_CRU", "Air_Temp_Mean_Summer_CRU", "Air_Temp_Mean_Winter_CRU"]),
+        pl.col("siteID") == lakeID
+        
+    # Cambiamento del nome della variabile da vedere nella legenda
+    ).with_columns(
+        pl.col("variable").replace(
+            ["Air_Temp_Mean_Annual_CRU", "Air_Temp_Mean_Summer_CRU", "Air_Temp_Mean_Winter_CRU"],
+            ["Annuale", "Estiva", "Invernale"]
+        )
+    )
+    
     # Crea un selection point che identifica il punto più vicino al cursore basato sull'asse X "Anno"
     nearest = alt.selection_point(
         
@@ -337,29 +357,19 @@ def get_lineplot_air_temp(data, lakeID):
 
     # Il grafico di base con le temperature
     line = alt.Chart(
-        
-        data.filter(
-            pl.col("variable").is_in(["Air_Temp_Mean_Annual_CRU", "Air_Temp_Mean_Summer_CRU", "Air_Temp_Mean_Winter_CRU"]),
-            pl.col("siteID") == lakeID
-        )
-        
+        data_temp
     ).mark_line().encode(
         # Asse X
         alt.X("year:Q", axis = alt.Axis(format = ".0f"), scale = alt.Scale(zero = False), title = "Anno"),
         # Asse Y
         alt.Y("value:Q", scale = alt.Scale(zero = False), title = "Temperatura (°C)"),
         # Colori delle linee
-        alt.Color("variable")
+        alt.Color("variable", title = "Temperatura media")
     )
 
     # Selettore trasparente del grafico. Ricava il valore X in cui si trova il cursore
     selectors = alt.Chart(
-        
-        data.filter(
-            pl.col("variable").is_in(["Air_Temp_Mean_Annual_CRU", "Air_Temp_Mean_Summer_CRU", "Air_Temp_Mean_Winter_CRU"]),
-            pl.col("siteID") == lakeID
-        )
-        
+        data_temp
     ).mark_point().encode(
         
         alt.X("year:Q", title = "Anno"),
@@ -385,12 +395,7 @@ def get_lineplot_air_temp(data, lakeID):
 
     # Disegna la linea verticale in corrispondenza dell'anno selezionato con il cursore
     rules = alt.Chart(
-        
-        data.filter(
-            pl.col("variable").is_in(["Air_Temp_Mean_Annual_CRU", "Air_Temp_Mean_Summer_CRU", "Air_Temp_Mean_Winter_CRU"]),
-            pl.col("siteID") == lakeID
-        )
-        
+        data_temp
     ).mark_rule(color = "gray").encode(
         alt.X("year:Q", title = "Anno"),
         opacity = alt.value(0.3)
@@ -406,7 +411,7 @@ def get_lineplot_air_temp(data, lakeID):
     )
 
     # Visualizzazione del grafico
-    st.altair_chart(chart, use_container_width = True)
+    return chart
 
 # Funzione che costruisce i tre barplot della copertura nuvolosa in inverno, annuale ed in estate
 def get_barplot_cloud(data, lakeID):
@@ -514,7 +519,7 @@ def get_barplot_cloud(data, lakeID):
     # Definizione del testo
     ).mark_text(
         align = "left",
-        baseline = "bottom",
+        baseline = "middle",
         fontSize = 14,
         fontWeight = 600,
         color = "black",
@@ -531,7 +536,7 @@ def get_barplot_cloud(data, lakeID):
         
     ).mark_text(
         align = "left",
-        baseline = "bottom",
+        baseline = "middle",
         fontSize = 14,
         fontWeight = 600,
         color = "black",
@@ -548,7 +553,7 @@ def get_barplot_cloud(data, lakeID):
         
     ).mark_text(
         align = "left",
-        baseline = "bottom",
+        baseline = "middle",
         fontSize = 14,
         fontWeight = 600,
         color = "black",
@@ -559,28 +564,39 @@ def get_barplot_cloud(data, lakeID):
         text = "label"
     )
 
+    charts = []
+    
     # Visualizzazione dei tre barplot
-    if convert_null(data_winter).is_empty(): st.altair_chart(cloud1 , use_container_width = True)
-    else: st.altair_chart(cloud1 + text1 , use_container_width = True)
+    if convert_null(data_winter).is_empty(): charts.append(cloud1)
+    else: charts.append(cloud1 + text1)
     
-    if convert_null(data_annual).is_empty(): st.altair_chart(cloud2, use_container_width = True)
-    else: st.altair_chart(cloud2 + text2, use_container_width = True)
+    if convert_null(data_annual).is_empty(): charts.append(cloud2)
+    else: charts.append(cloud2 + text2)
     
-    if convert_null(data_summer).is_empty(): st.altair_chart(cloud3, use_container_width = True)
-    else: st.altair_chart(cloud3 + text3, use_container_width = True)
+    if convert_null(data_summer).is_empty(): charts.append(cloud3)
+    else: charts.append(cloud3 + text3)
+    
+    return charts
 
 # Funzione che costruisce il grafico della radiazione totale in inverno, annuale ed in estate
 def get_lineplot_radiation(data, lakeID):
     
     # Filtro del dataframe per semplificarne l'utilizzo
     data_rad = data.filter(
-            pl.col("variable").is_in(["Radiation_Total_Summer", "Radiation_Total_Annual", "Radiation_Total_Winter"]),
-            pl.col("siteID") == lakeID
+        pl.col("variable").is_in(["Radiation_Total_Summer", "Radiation_Total_Annual", "Radiation_Total_Winter"]),
+        pl.col("siteID") == lakeID
+    
+    # Cambiamento del nome della variabile da vedere nella legenda
+    ).with_columns(
+        pl.col("variable").replace(
+            ["Radiation_Total_Summer", "Radiation_Total_Annual", "Radiation_Total_Winter"],
+            ["Estiva", "Annuale", "Invernale"]
         )
+    )
     
     # Creazione di un dominio per una migliore visualizzazione del grafico
     custom_domain = [
-        data_rad.min()["value"][0] - 50,
+        data_rad.min()["value"][0] - 100,
         data_rad.max()["value"][0] + 50
     ]
     
@@ -610,7 +626,7 @@ def get_lineplot_radiation(data, lakeID):
         # Asse Y
         alt.Y("value:Q", title = "Radiazioni", scale = alt.Scale(domain = custom_domain)).stack(None),
         # Colori delle linee
-        alt.Color("variable"),
+        alt.Color("variable", title = "Quantità totale di radiazioni"),
         # Rimozione del tootip
         tooltip = alt.value(None)
         
@@ -619,7 +635,7 @@ def get_lineplot_radiation(data, lakeID):
     )
 
     # Visualizzazione del grafico
-    st.altair_chart(chart, use_container_width = True)
+    return chart
 
 # Funzione che costruisce il grafico della temperatura del lago considerando i valori mancanti
 def get_lineplot_lake(data, lakeID):
@@ -631,10 +647,12 @@ def get_lineplot_lake(data, lakeID):
     )
     
     # Creazione del grafico di dispersione
-    point = alt.Chart(data1).mark_point().encode(
+    point = alt.Chart(
+        data1
+    ).mark_point().encode(
         # Asse X
         alt.X("year:Q", 
-            axis = alt.Axis(format = ".0f"), 
+            axis = alt.Axis(format = ".0f"),
             title = "Anno", 
             scale = alt.Scale(domain = [1984, 2010])
         ),
@@ -642,11 +660,11 @@ def get_lineplot_lake(data, lakeID):
         alt.Y("value:Q", title = "Temperatura (°C)", scale = alt.Scale(zero = False)),
         
     ).properties(
-        # height = 300
+        height = 300
     )
     
     # Controllo della presenza di valori mancanti
-    if convert_null(data1).is_empty(): st.altair_chart(point, use_container_width=True)
+    if convert_null(data1).is_empty(): return point
     else:
     
         # Creazione di una matrice dei valori mancanti (Verrà utilizzata solo la colonna "year")
@@ -675,7 +693,7 @@ def get_lineplot_lake(data, lakeID):
             graph = graph + rect
         
         # Visualizzazione del grafico finale
-        st.altair_chart(graph, use_container_width=True)
+        return graph
 
 # Funzione che costruisce la mappa per visualizzare il metodo di campionamento
 def get_map_method(countries_data, lakeinformation):
@@ -821,23 +839,10 @@ methods()
 # Scelta del lago
 lakeID = get_lake(lakeinformation)
 
-# Visualizzazione del grafico delle temperature dell'aria
-get_lineplot_air_temp(data, lakeID)
+lake = lakeinformation.filter(pl.col("siteID") == lakeID)
 
 # Visualizzazione dello scattermapbox
-get_map_interactive(lakeID)
-
-# Visualizzazione dei barplot della copertura nuvolosa in inverno, annuale ed in estate
-get_barplot_cloud(data, lakeID)
-
-# Visualizzazione del grafico della radiazione totale in inverno, annuale ed in estate
-get_lineplot_radiation(data, lakeID)
-
-# Visualizzazione del grafico di dispersione della temperatura dell'acqua
-get_lineplot_lake(data, lakeID)
-
-
-lake = lakeinformation.filter(pl.col("siteID") == lakeID)
+st.plotly_chart(get_map_interactive(lakeID), use_container_width = True)
 
 # Creazione di colonne per una visualizzazione migliore
 col1, col2, col3, col4 = st.columns([0.05, 0.7, 0.05, 0.2])
@@ -925,6 +930,25 @@ col4.markdown(
         <div class="legend-title"><span class="color">Orario di campionamento</span></div>
         <div class="legend-item">""" + lake["sampling_time_of_day"][0] + """</div>
     </div>
+
+    <div class="legend-section">
+        <div class="legend-title"><span class="color">Periodo di campionamento</span></div>
+        <div class="legend-item">""" + lake["time_period"][0] + """</div>
+    </div>
     """,
     unsafe_allow_html=True,
 )
+
+# Visualizzazione del grafico di dispersione della temperatura dell'acqua
+col2.altair_chart(get_lineplot_lake(data, lakeID), use_container_width=True)
+
+# Visualizzazione del grafico delle temperature dell'aria
+col2.altair_chart(get_lineplot_air_temp(data, lakeID), use_container_width = True)
+
+# Visualizzazione dei barplot della copertura nuvolosa in inverno, annuale ed in estate
+clouds = get_barplot_cloud(data, lakeID)
+for cloud in clouds:
+    col2.altair_chart(cloud, use_container_width = True)
+
+# Visualizzazione del grafico della radiazione totale in inverno, annuale ed in estate
+col2.altair_chart(get_lineplot_radiation(data, lakeID), use_container_width = True)
