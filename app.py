@@ -67,11 +67,12 @@ def load_data():
         ).with_columns(
             pl.col("sampling_depth").str.replace("skin-derived bulk temperature", "1")
         
-        # Formatto le colonne "mean_depth_m", "max_depth_m", "volume_km3"
+        # Formatto le colonne "mean_depth_m", "max_depth_m", "volume_km3", "sampling_time_of_day"
         ).with_columns(
             pl.col("mean_depth_m").fill_null("Dato non presente"),
             pl.col("max_depth_m").fill_null("Dato non presente"),
-            pl.col("volume_km3").fill_null("Dato non presente")
+            pl.col("volume_km3").fill_null("Dato non presente"),
+            pl.col("sampling_time_of_day").fill_null("Dato non presente").replace("continuous", "Continuo")
         
         # Formatto la colonna "time_period"
         ).with_columns(
@@ -455,7 +456,7 @@ def get_barplot_cloud(data, lakeID):
     # Definizione delle barre
     ).mark_bar(
         
-        fill = "#4C78A8", # Colore della barra
+        fill = "#cc2222", # Colore della barra
         stroke = "black", # Colore del bordo
         cursor = "pointer", # Tipologia dell'interazione col cursore
         size = 25 # Larghezza della barra
@@ -466,10 +467,14 @@ def get_barplot_cloud(data, lakeID):
         alt.X("year", axis = alt.Axis(format = ".0f"), scale = alt.Scale(zero = False), title = ""),
         
         # Asse Y
-        alt.Y("value:Q", scale = alt.Scale(domain = [0, 1]), title="Inverno"),
+        alt.Y(
+            "value:Q",
+            scale = alt.Scale(domain = [0, 1]),
+            axis = alt.Axis(title = "Inverno", titleColor = "black", titleFontWeight = "bold")
+        ),
         
         # Definizione delle informazioni mostrate sopra il cursore al suo passaggio
-        tooltip = [alt.Tooltip("value", title = "Percentuale"), alt.Tooltip("year", title="Anno")],
+        tooltip = [alt.Tooltip("value", title = "Percentuale"), alt.Tooltip("year", title = "Anno")],
         
         # Definizione dell'opacità delle barre quando una viene selezionata
         fillOpacity = alt.when(select).then(alt.value(1)).otherwise(alt.value(0.3)),
@@ -484,13 +489,17 @@ def get_barplot_cloud(data, lakeID):
     cloud2 = alt.Chart(data_annual,
             height = 200
     ).mark_bar(
-        fill = "#4C78A8",
+        fill = "#0050a3",
         stroke = "black",
         cursor = "pointer",
         size = 25
     ).encode(
         alt.X("year", axis = alt.Axis(format = ".0f"), scale = alt.Scale(zero = False), title = ""),
-        alt.Y("value:Q", scale = alt.Scale(domain = [0, 1]), title = "Annuale"),
+        alt.Y(
+            "value:Q",
+            scale = alt.Scale(domain = [0, 1]),
+            axis = alt.Axis(title = "Annuale", titleColor = "black", titleFontWeight = "bold")
+        ),
         tooltip = [alt.Tooltip("value", title = "Percentuale"), alt.Tooltip("year", title = "Anno")],
         fillOpacity = alt.when(select).then(alt.value(1)).otherwise(alt.value(0.3)),
         strokeWidth = stroke_width,
@@ -500,13 +509,17 @@ def get_barplot_cloud(data, lakeID):
     cloud3 = alt.Chart(data_summer,
             height=200
     ).mark_bar(
-        fill="#4C78A8",
+        fill="#6baedc",
         stroke="black",
         cursor="pointer",
         size=25
     ).encode(
         alt.X("year", axis = alt.Axis(format = ".0f"), scale = alt.Scale(zero = False), title = ""),
-        alt.Y("value:Q", scale = alt.Scale(domain = [0, 1]), title = "Estate"),
+        alt.Y(
+            "value:Q",
+            scale = alt.Scale(domain = [0, 1]),
+            axis = alt.Axis(title = "Estate", titleColor = "black", titleFontWeight = "bold")
+        ),
         tooltip = [alt.Tooltip("value", title = "Percentuale"), alt.Tooltip("year", title = "Anno")],
         fillOpacity = alt.when(select).then(alt.value(1)).otherwise(alt.value(0.3)),
         strokeWidth = stroke_width,
@@ -847,7 +860,7 @@ st.plotly_chart(get_map_interactive(lakeID), use_container_width = True)
 # Creazione di colonne per una visualizzazione migliore
 col1, col2, col3, col4 = st.columns([0.05, 0.7, 0.05, 0.2])
 
-# Colonna a destra per visualizzare le informazioni del lago selezionato
+# Costruzione della colonna a destra per visualizzare le informazioni del lago selezionato
 col4.markdown(
     """
     <style>
@@ -940,15 +953,34 @@ col4.markdown(
 )
 
 # Visualizzazione del grafico di dispersione della temperatura dell'acqua
+col2.markdown("""
+    ### Temperature medie delle acque superficiali del lago per il trimestre estivo rilevate con il metodo *""" + lake["source"][0].capitalize() + """* in gradi centigradi
+""")
+
 col2.altair_chart(get_lineplot_lake(data, lakeID), use_container_width=True)
 
 # Visualizzazione del grafico delle temperature dell'aria
+col2.markdown("""
+    ### Temperatura media dell'aria in gradi centigradi
+    source: Climatic Research Unit (CRU)
+""")
+
 col2.altair_chart(get_lineplot_air_temp(data, lakeID), use_container_width = True)
 
 # Visualizzazione dei barplot della copertura nuvolosa in inverno, annuale ed in estate
+col2.markdown("""
+    ### Medie delle percentuali di copertura nuvolosa in inverno, annuale e in estate
+    source: Advanced Very High Resolution Radiometer Pathfinder Atmosphere Extended dataset (PATMOS)
+""")
+
 clouds = get_barplot_cloud(data, lakeID)
 for cloud in clouds:
     col2.altair_chart(cloud, use_container_width = True)
 
 # Visualizzazione del grafico della radiazione totale in inverno, annuale ed in estate
+col2.markdown("""
+    ### Quantità totale di radiazione in entrata durante l'anno, misurata in watt per metro quadrato
+    source: Surface Radiation Budget (SRB)
+""")
+
 col2.altair_chart(get_lineplot_radiation(data, lakeID), use_container_width = True)
