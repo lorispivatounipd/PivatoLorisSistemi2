@@ -309,10 +309,10 @@ def get_rect(data, lakeinformation):
     )
 
     # Costruzione dell'heatmap
-    graph = alt.Chart(data_temp, title = "Temperature medie estive dei laghi in " + region + " (°C)").mark_rect().encode(
+    graph = alt.Chart(data_temp, title = "").mark_rect().encode(
         
         alt.X("Lake_name:O", title = "Lago"),
-        alt.Y("year:O", sort = "descending", title = "Anno"),
+        alt.Y("year:O", sort = "descending", title = ""),
         alt.Color("value:Q", title = "Temperatura", scale = alt.Scale(
             
             scheme = "blueorange",
@@ -323,10 +323,13 @@ def get_rect(data, lakeinformation):
         
     ).properties(
         
-        height = 500,
+        height = 450,
         # larghezza che permette di visualizzare bene tutti gli heatmap
-        width = data_temp.select("siteID").unique().height * 13.8158 + 156
+        width = data_temp.select("siteID").unique().height * 13.6 + 150
     )
+    
+    # Visualizzazione del titolo dell'heatmap
+    cont.write("Temperature medie estive dei laghi in " + region + " (°C)")
     
     # Visualizzazione dell'heatmap
     cont.altair_chart(graph)
@@ -778,7 +781,7 @@ def background():
     col1, col2, col3 = st.columns([0.15, 0.7, 0.15])
     
     col2.markdown("""
-    ## Conteso e Sintesi
+    ## Contesto e Sintesi
     Gli ecosistemi di acqua dolce sono vulnerabili agli effetti dei cambiamenti ambientali globali.
     I laghi sono sentinelle del cambiamento climatico e rappresentano un efficace indicatore della risposta limnologica
     al cambiamento climatico globale. Le temperature superficiali dei
