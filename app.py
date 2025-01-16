@@ -143,6 +143,11 @@ def get_lake(lakeinformation):
     # Costruzione di colonne per una migliore visualizzazione del selectbox
     col1, col2, col3 = st.columns([0.15, 0.7, 0.15])
     
+    # Costruzione del titolo e descrizione
+    col2.markdown('''
+    ## Selezione del lago
+    Selezionare il lago di cui si desidera visualizzare i relativi fattori climatici e le caratteristiche geomorfometriche''')
+    
     # Scelta del lago
     lake = col2.selectbox("Inserisci il lago:", lakeinformation.get_column("Lake_name").sort())
 
@@ -971,14 +976,18 @@ col4.markdown(
 
 # Visualizzazione del grafico di dispersione della temperatura dell'acqua
 col2.markdown("""
-    ### Temperature medie delle acque superficiali del lago per il trimestre estivo rilevate con il metodo *""" + lake["source"][0].capitalize() + """* in gradi centigradi
+    ### Temperatura dell'acqua
+    Temperature medie delle acque superficiali del lago rilevate giornalmente durante
+    il trimestre estivo con il metodo *""" + lake["source"][0].capitalize() + """* in gradi centigradi
 """)
 
 col2.altair_chart(get_lineplot_lake(data, lakeID), use_container_width=True)
 
 # Visualizzazione del grafico delle temperature dell'aria
 col2.markdown("""
-    ### Temperatura media dell'aria in gradi centigradi
+    ### Temperatura dell'aria
+    Temperature medie dell'aria rilevate giornalmente durante il trimestre estivo, il trimestre invernale e durante l'anno
+    in gradi centigradi  
     source: Climatic Research Unit (CRU)
 """)
 
@@ -986,7 +995,8 @@ col2.altair_chart(get_lineplot_air_temp(data, lakeID), use_container_width = Tru
 
 # Visualizzazione dei barplot della copertura nuvolosa in inverno, annuale ed in estate
 col2.markdown("""
-    ### Medie delle percentuali di copertura nuvolosa in inverno, annuale e in estate
+    ### Copertura nuvolosa
+    Medie delle percentuali di copertura nuvolosa rilevate giornalmente durante il trimestre estivo, il trimestre invernale e durante l'anno  
     source: Advanced Very High Resolution Radiometer Pathfinder Atmosphere Extended dataset (PATMOS)
 """)
 
@@ -996,7 +1006,9 @@ for cloud in clouds:
 
 # Visualizzazione del grafico della radiazione totale in inverno, annuale ed in estate
 col2.markdown("""
-    ### Quantità totale di radiazione in entrata durante l'anno, misurata in watt per metro quadrato
+    ### Radiazione solare
+    Quantità totale di radiazione solare in entrata rilevata durante il trimestre estivo, il trimestre invernale e durante l'anno
+    misurata in watt per metro quadrato  
     source: Surface Radiation Budget (SRB)
 """)
 
