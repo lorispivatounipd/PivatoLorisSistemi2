@@ -662,10 +662,26 @@ def get_lineplot_lake(data, lakeID):
         pl.col("variable").is_in(["Lake_Temp_Summer_Satellite", "Lake_Temp_Summer_InSitu"])
     )
     
+    # Creazione di una matrice dei valori mancanti (Verrà utilizzata solo la colonna "year")
+    converted = convert_null(data1)
+    
+    # Creazione di una matrice con i valori mancanti formattata come il dataframe originale
+    missing_data = pl.DataFrame(
+        {
+            "variable": [data1["variable"][0]] * converted.height,
+            "year": converted["year"],
+            "siteID": [data1["siteID"][0]] * converted.height,
+            "value": [None] * converted.height
+        }
+    )
+    
+    # Inserimento dei valori mancanti nel dataframe originale
+    data1 = data1.vstack(missing_data)
+    
     # Creazione del grafico di dispersione
     point = alt.Chart(
         data1
-    ).mark_point().encode(
+    ).mark_line(point=alt.OverlayMarkDef(filled = False, fill = "white")).encode(
         # Asse X
         alt.X("year:Q", 
             axis = alt.Axis(format = ".0f"),
@@ -680,15 +696,13 @@ def get_lineplot_lake(data, lakeID):
     )
     
     # Controllo della presenza di valori mancanti
-    if convert_null(data1).is_empty(): return point
+    if converted.is_empty(): return point
     else:
     
-        # Creazione di una matrice dei valori mancanti (Verrà utilizzata solo la colonna "year")
-        conv = convert_null(data1)
         graph = point
         
         # Creazione di una colonna che segnala l'assenza del dato in corrispondenza dell'anno
-        for year in conv["year"]:
+        for year in converted["year"]:
             
             # Creazione di un dataframe per la costruzione della colonna
             rect_data = pl.DataFrame({
